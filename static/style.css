@@ -72,19 +72,11 @@ body {
 
 .brand { display: flex; align-items: center; gap: var(--s3); }
 
-.brand-mark {
-  width: 34px;
-  height: 34px;
-  background: var(--c-yellow);
-  color: #000;
+.brand-logo {
+  height: 42px;
+  width: auto;
   border-radius: var(--r-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--f-display);
-  font-size: 17px;
-  flex-shrink: 0;
-  box-shadow: 0 0 0 1px rgba(255,199,0,.35), 0 2px 10px rgba(255,199,0,.2);
+  display: block;
 }
 
 .brand-text { display: flex; flex-direction: column; gap: 1px; }
