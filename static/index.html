@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document Summarizer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <h1>📄 Document Summarizer</h1>
+      <button id="settingsToggle" class="btn-icon" title="הגדרות">⚙ הגדרות</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="banner" class="banner hidden"></div>
+
+    <!-- Settings Panel -->
+    <section id="settingsPanel" class="card settings-panel hidden">
+      <h2>הגדרות מערכת</h2>
+      <div class="form-row">
+        <label for="apiKeyInput">Claude API Key</label>
+        <div class="input-with-action">
+          <input type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off" />
+          <button class="btn-secondary" id="toggleKeyVisibility" onclick="toggleKeyVisibility()">הצג</button>
+          <button class="btn-primary" onclick="saveSettings()">שמור</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label for="modelSelect">מודל</label>
+        <select id="modelSelect">
+          <option value="claude-opus-4-5">claude-opus-4-5</option>
+          <option value="claude-sonnet-4-5">claude-sonnet-4-5</option>
+          <option value="claude-haiku-4-5">claude-haiku-4-5</option>
+        </select>
+      </div>
+      <div id="keyStatus" class="key-status"></div>
+    </section>
+
+    <!-- Drop Zone -->
+    <section class="card">
+      <div id="dropZone" class="drop-zone">
+        <div class="drop-icon">📂</div>
+        <p class="drop-text">גרור קבצים לכאן</p>
+        <p class="drop-sub">או <button class="btn-link" onclick="document.getElementById('fileInput').click()">לחץ לבחירת קבצים</button></p>
+        <p class="drop-hint">תמיכה: PDF, DOCX</p>
+        <input type="file" id="fileInput" multiple accept=".pdf,.docx,.doc" style="display:none" />
+      </div>
+
+      <div id="fileList" class="file-list hidden"></div>
+    </section>
+
+    <!-- Config Panel -->
+    <section class="card">
+      <h2>פרמטרי סיכום</h2>
+      <div class="config-grid">
+        <div class="form-row">
+          <label for="language">שפה</label>
+          <select id="language">
+            <option value="עברית">עברית</option>
+            <option value="English">English</option>
+            <option value="ערבית">ערבית</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label for="format">פורמט</label>
+          <select id="format">
+            <option value="bullet_points">נקודות</option>
+            <option value="paragraph">פסקה</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label for="maxLength">אורך מקסימלי (מילים)</label>
+          <input type="number" id="maxLength" value="400" min="50" max="2000" />
+        </div>
+      </div>
+
+      <div class="params-section">
+        <h3>הנחיות לסיכום</h3>
+        <div id="paramsList"></div>
+        <button class="btn-secondary" onclick="addParameter()">+ הוסף הנחיה</button>
+      </div>
+    </section>
+
+    <!-- Summarize Button -->
+    <div class="action-row">
+      <button id="summarizeBtn" class="btn-summarize" onclick="summarize()">▶ סכם מסמכים</button>
+    </div>
+
+    <!-- Loading -->
+    <div id="loadingState" class="loading-state hidden">
+      <div class="spinner"></div>
+      <p id="loadingText">מעבד קבצים...</p>
+    </div>
+
+    <!-- Results -->
+    <section id="resultsSection" class="hidden">
+      <h2 class="results-title">תוצאות</h2>
+      <div id="resultsContainer"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
