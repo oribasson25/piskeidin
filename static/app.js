@@ -65,6 +65,7 @@ function toggleKeyVisibility() {
 
 function openSettingsPanel() {
   document.getElementById("settingsOverlay").classList.remove("hidden");
+  checkSettings();
 }
 
 function closeSettingsPanel() {
