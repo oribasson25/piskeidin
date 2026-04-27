@@ -15,15 +15,18 @@ def load_settings() -> dict:
 
 
 def save_settings_file(data: dict):
-    SETTINGS_FILE.write_text(json.dumps(data, indent=2))
+    try:
+        SETTINGS_FILE.write_text(json.dumps(data, indent=2))
+    except OSError:
+        pass  # ephemeral filesystem on serverless
 
 
 def get_api_key() -> str:
-    # Vercel / production: read from environment variable
+    # Vercel / production: ANTHROPIC_API_KEY environment variable
     env_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if env_key:
         return env_key
-    # Local development: read from settings.json
+    # Local development: settings.json
     key = load_settings().get("api_key", "")
     if not key:
         raise ValueError("לא הוגדר API Key. פתח את ההגדרות והזן מפתח.")
@@ -46,14 +49,10 @@ async def get_settings():
 
 @router.put("/settings")
 async def save_settings(body: dict):
-    # On Vercel the filesystem is ephemeral — use ANTHROPIC_API_KEY env var instead
-    try:
-        s = load_settings()
-        if body.get("api_key"):
-            s["api_key"] = body["api_key"]
-        if body.get("model"):
-            s["model"] = body["model"]
-        save_settings_file(s)
-    except OSError:
-        pass  # read-only filesystem on serverless — env var takes precedence anyway
+    s = load_settings()
+    if body.get("api_key"):
+        s["api_key"] = body["api_key"]
+    if body.get("model"):
+        s["model"] = body["model"]
+    save_settings_file(s)
     return {"ok": True}
