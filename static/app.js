@@ -2,6 +2,7 @@
 
 let selectedFiles = [];
 let configOpen = true;
+let lastResults = [];
 
 const DEFAULT_PARAMS = [
   "סכם את הנקודות העיקריות ב-4 עד 6 נקודות",
@@ -259,6 +260,8 @@ function renderSummary(text) {
 }
 
 function renderResults(results) {
+  lastResults = results;
+
   const section   = document.getElementById("resultsSection");
   const container = document.getElementById("resultsContainer");
   const countEl   = document.getElementById("resultsCount");
@@ -277,8 +280,6 @@ function renderResults(results) {
       ? `${r.char_count.toLocaleString()} תווים`
       : "";
 
-    const summaryJson = JSON.stringify(r.summary || "");
-
     card.innerHTML = `
       <div class="result-card-head">
         <div class="result-file-info">
@@ -291,12 +292,8 @@ function renderResults(results) {
         </div>
         ${!r.error ? `
           <div class="result-actions">
-            <button class="export-btn" onclick="exportFile('${escAttr(r.filename)}', ${summaryJson}, 'pdf')">
-              ↓ PDF
-            </button>
-            <button class="export-btn" onclick="exportFile('${escAttr(r.filename)}', ${summaryJson}, 'docx')">
-              ↓ Word
-            </button>
+            <button class="export-btn" onclick="exportResult(${i}, 'pdf')">↓ PDF</button>
+            <button class="export-btn" onclick="exportResult(${i}, 'docx')">↓ Word</button>
           </div>` : ""}
       </div>
       ${r.error
@@ -311,14 +308,17 @@ function renderResults(results) {
 
 // ─── Export ────────────────────────────────────────────────────────────────
 
-async function exportFile(filename, summary, format) {
+async function exportResult(idx, format) {
+  const r = lastResults[idx];
+  if (!r) return;
+  const { filename, summary } = r;
   try {
     const res = await fetch(`/export/${format}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ filename, summary })
     });
-    if (!res.ok) throw new Error("שגיאת שרת");
+    if (!res.ok) throw new Error(`שגיאת שרת ${res.status}`);
     const blob = await res.blob();
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement("a");
