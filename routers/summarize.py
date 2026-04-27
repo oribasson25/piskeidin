@@ -41,6 +41,28 @@ def build_prompt(config: dict, text: str) -> str:
 ================="""
 
 
+def build_combined_prompt(config: dict, docs: list) -> str:
+    params = config["summarization"]
+    instructions = "\n".join(f"  • {p}" for p in params["parameters"])
+    fmt = "נקודות (bullet points)" if params["output_format"] == "bullet_points" else "פסקה רציפה"
+    docs_section = "\n\n".join(
+        f"===== מסמך {i + 1}: {name} =====\n{text}\n=================="
+        for i, (name, text) in enumerate(docs)
+    )
+    return f"""אתה מומחה לסיכום מסמכים. סכם את כל המסמכים הבאים יחד לסיכום אחד משולב לפי ההנחיות בלבד.
+
+הנחיות:
+{instructions}
+
+פורמט: {fmt}
+שפה: {params['language']}
+אורך מקסימלי: {params['max_length']} מילים
+
+השב אך ורק עם הסיכום המשולב, ללא הקדמות.
+
+{docs_section}"""
+
+
 @router.post("/summarize")
 async def summarize(
     files: List[UploadFile] = File(...),
@@ -58,52 +80,76 @@ async def summarize(
 
     model = config["summarization"].get("model", "claude-opus-4-5")
 
-    results = []
+    # Step 1 — extract text from every file
+    ok_docs = []   # (filename, text, char_count)
+    failed = []    # (filename, error_msg)
+
     for file in files:
         filename = file.filename
         try:
             file_bytes = await file.read()
             ext = Path(filename).suffix.lower()
-
             if ext == ".pdf":
                 text = extract_pdf_text(file_bytes)
             elif ext in (".docx", ".doc"):
                 text = extract_docx_text(file_bytes)
             else:
-                results.append({
-                    "filename": filename,
-                    "summary": None,
-                    "char_count": 0,
-                    "truncated": False,
-                    "error": f"סוג קובץ לא נתמך: {ext}"
-                })
+                failed.append((filename, f"סוג קובץ לא נתמך: {ext}"))
                 continue
+            ok_docs.append((filename, text, len(text)))
+        except Exception as e:
+            failed.append((filename, str(e)))
 
-            char_count = len(text)
-            truncated = char_count > 50000
+    results = []
+
+    # Step 2 — one Claude call for all successful docs
+    if ok_docs:
+        if len(ok_docs) == 1:
+            fn, text, cc = ok_docs[0]
             prompt = build_prompt(config, text)
+            res_filename = fn
+            res_charcount = cc
+            res_truncated = cc > 50000
+        else:
+            per_limit = 50000 // len(ok_docs)
+            res_filename = " · ".join(fn for fn, _, _ in ok_docs)
+            res_charcount = sum(cc for _, _, cc in ok_docs)
+            res_truncated = any(cc > per_limit for _, _, cc in ok_docs)
+            prompt = build_combined_prompt(
+                config,
+                [(fn, text[:per_limit]) for fn, text, _ in ok_docs]
+            )
 
+        try:
             message = client.messages.create(
                 model=model,
-                max_tokens=1024,
+                max_tokens=1500,
                 messages=[{"role": "user", "content": prompt}]
             )
-            summary = message.content[0].text
-
             results.append({
-                "filename": filename,
-                "summary": summary,
-                "char_count": char_count,
-                "truncated": truncated,
+                "filename": res_filename,
+                "summary": message.content[0].text,
+                "char_count": res_charcount,
+                "truncated": res_truncated,
                 "error": None
             })
         except Exception as e:
             results.append({
-                "filename": filename,
+                "filename": res_filename,
                 "summary": None,
                 "char_count": 0,
                 "truncated": False,
                 "error": str(e)
             })
+
+    # Step 3 — append extraction errors
+    for fn, err in failed:
+        results.append({
+            "filename": fn,
+            "summary": None,
+            "char_count": 0,
+            "truncated": False,
+            "error": err
+        })
 
     return {"results": results}
