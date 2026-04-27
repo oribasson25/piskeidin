@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from fastapi import APIRouter
 
@@ -18,6 +19,11 @@ def save_settings_file(data: dict):
 
 
 def get_api_key() -> str:
+    # Vercel / production: read from environment variable
+    env_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if env_key:
+        return env_key
+    # Local development: read from settings.json
     key = load_settings().get("api_key", "")
     if not key:
         raise ValueError("לא הוגדר API Key. פתח את ההגדרות והזן מפתח.")
@@ -26,21 +32,28 @@ def get_api_key() -> str:
 
 @router.get("/settings")
 async def get_settings():
-    s = load_settings()
-    key = s.get("api_key", "")
+    env_key  = os.environ.get("ANTHROPIC_API_KEY", "")
+    file_key = load_settings().get("api_key", "")
+    key      = env_key or file_key
+    s        = load_settings()
     return {
-        "has_api_key": bool(key),
+        "has_api_key":  bool(key),
         "api_key_hint": f"...{key[-4:]}" if len(key) >= 4 else "",
-        "model": s.get("model", "claude-opus-4-5")
+        "model":        s.get("model", "claude-opus-4-5"),
+        "from_env":     bool(env_key),
     }
 
 
 @router.put("/settings")
 async def save_settings(body: dict):
-    s = load_settings()
-    if body.get("api_key"):
-        s["api_key"] = body["api_key"]
-    if body.get("model"):
-        s["model"] = body["model"]
-    save_settings_file(s)
+    # On Vercel the filesystem is ephemeral — use ANTHROPIC_API_KEY env var instead
+    try:
+        s = load_settings()
+        if body.get("api_key"):
+            s["api_key"] = body["api_key"]
+        if body.get("model"):
+            s["model"] = body["model"]
+        save_settings_file(s)
+    except OSError:
+        pass  # read-only filesystem on serverless — env var takes precedence anyway
     return {"ok": True}

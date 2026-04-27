@@ -23,14 +23,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
 async function checkSettings() {
   try {
-    const res = await fetch("/settings");
+    const res  = await fetch("/settings");
     const data = await res.json();
     if (!data.has_api_key) {
       openSettingsPanel();
       showBanner("יש להגדיר API Key לפני השימוש", "warning");
       setKeyStatus("✗ מפתח לא מוגדר", true);
     } else {
-      setKeyStatus(`✓ מפתח מוגדר (${data.api_key_hint})`);
+      const src = data.from_env ? " · מוגדר ב-Environment Variable" : "";
+      setKeyStatus(`✓ מפתח מוגדר (${data.api_key_hint})${src}`);
       const sel = document.getElementById("modelSelect");
       if (data.model) sel.value = data.model;
     }
