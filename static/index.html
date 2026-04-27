@@ -3,103 +3,182 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Document Summarizer</title>
+  <title>מסכם מסמכים</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Secular+One&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <div class="header-inner">
-      <h1>📄 Document Summarizer</h1>
-      <button id="settingsToggle" class="btn-icon" title="הגדרות">⚙ הגדרות</button>
+
+  <!-- ─── Header ────────────────────────────────────────────── -->
+  <header class="site-header">
+    <div class="header-content">
+      <div class="brand">
+        <div class="brand-mark">מ</div>
+        <div class="brand-text">
+          <span class="brand-name">מסכם מסמכים</span>
+          <span class="brand-sub">Claude AI · עברית</span>
+        </div>
+      </div>
+      <button class="settings-toggle" id="settingsToggle" aria-label="הגדרות">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        הגדרות
+      </button>
     </div>
   </header>
 
-  <main>
+  <!-- ─── Settings Drawer ───────────────────────────────────── -->
+  <div class="settings-overlay hidden" id="settingsOverlay">
+    <div class="settings-scrim" onclick="closeSettingsPanel()"></div>
+    <aside class="settings-drawer" id="settingsDrawer">
+      <div class="drawer-header">
+        <h2 class="drawer-title">הגדרות מערכת</h2>
+        <button class="close-btn" onclick="closeSettingsPanel()" aria-label="סגור">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="drawer-body">
+        <div class="field-group">
+          <label class="field-label" for="apiKeyInput">Claude API Key</label>
+          <div class="input-row">
+            <input type="password" id="apiKeyInput" class="field-input" placeholder="sk-ant-api03-…" autocomplete="off" />
+            <button class="icon-btn" id="toggleKeyBtn" onclick="toggleKeyVisibility()" title="הצג/הסתר">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+          <div id="keyStatus" class="key-status"></div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="modelSelect">מודל</label>
+          <select id="modelSelect" class="field-input field-select">
+            <option value="claude-opus-4-5">Claude Opus 4.5 — יכולות מקסימליות</option>
+            <option value="claude-sonnet-4-5">Claude Sonnet 4.5 — מהירות ואיכות</option>
+            <option value="claude-haiku-4-5">Claude Haiku 4.5 — מהיר וחסכוני</option>
+          </select>
+        </div>
+
+        <button class="save-btn" onclick="saveSettings()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          שמור הגדרות
+        </button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ─── Main ──────────────────────────────────────────────── -->
+  <main class="main">
+
     <div id="banner" class="banner hidden"></div>
 
-    <!-- Settings Panel -->
-    <section id="settingsPanel" class="card settings-panel hidden">
-      <h2>הגדרות מערכת</h2>
-      <div class="form-row">
-        <label for="apiKeyInput">Claude API Key</label>
-        <div class="input-with-action">
-          <input type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off" />
-          <button class="btn-secondary" id="toggleKeyVisibility" onclick="toggleKeyVisibility()">הצג</button>
-          <button class="btn-primary" onclick="saveSettings()">שמור</button>
-        </div>
-      </div>
-      <div class="form-row">
-        <label for="modelSelect">מודל</label>
-        <select id="modelSelect">
-          <option value="claude-opus-4-5">claude-opus-4-5</option>
-          <option value="claude-sonnet-4-5">claude-sonnet-4-5</option>
-          <option value="claude-haiku-4-5">claude-haiku-4-5</option>
-        </select>
-      </div>
-      <div id="keyStatus" class="key-status"></div>
-    </section>
-
-    <!-- Drop Zone -->
-    <section class="card">
+    <!-- Upload -->
+    <section class="panel">
       <div id="dropZone" class="drop-zone">
-        <div class="drop-icon">📂</div>
-        <p class="drop-text">גרור קבצים לכאן</p>
-        <p class="drop-sub">או <button class="btn-link" onclick="document.getElementById('fileInput').click()">לחץ לבחירת קבצים</button></p>
-        <p class="drop-hint">תמיכה: PDF, DOCX</p>
-        <input type="file" id="fileInput" multiple accept=".pdf,.docx,.doc" style="display:none" />
+        <div class="drop-inner">
+          <div class="doc-stack" aria-hidden="true">
+            <div class="doc doc--back"></div>
+            <div class="doc doc--mid"></div>
+            <div class="doc doc--front">
+              <div class="doc-lines">
+                <span></span><span></span><span></span>
+              </div>
+            </div>
+          </div>
+          <div class="drop-copy">
+            <p class="drop-headline">גרור קבצים לכאן</p>
+            <p class="drop-hint">
+              או <button class="link-btn" onclick="document.getElementById('fileInput').click()">בחר מהמחשב</button>
+            </p>
+            <p class="drop-formats">PDF · DOCX</p>
+          </div>
+        </div>
+        <input type="file" id="fileInput" multiple accept=".pdf,.docx,.doc" />
       </div>
 
-      <div id="fileList" class="file-list hidden"></div>
+      <div id="fileList" class="file-chips hidden"></div>
     </section>
 
-    <!-- Config Panel -->
-    <section class="card">
-      <h2>פרמטרי סיכום</h2>
-      <div class="config-grid">
-        <div class="form-row">
-          <label for="language">שפה</label>
-          <select id="language">
-            <option value="עברית">עברית</option>
-            <option value="English">English</option>
-            <option value="ערבית">ערבית</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label for="format">פורמט</label>
-          <select id="format">
-            <option value="bullet_points">נקודות</option>
-            <option value="paragraph">פסקה</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label for="maxLength">אורך מקסימלי (מילים)</label>
-          <input type="number" id="maxLength" value="400" min="50" max="2000" />
-        </div>
-      </div>
+    <!-- Config -->
+    <section class="panel">
+      <button class="panel-toggle" id="configToggle" onclick="toggleConfig()" type="button">
+        <span class="panel-toggle-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          פרמטרי סיכום
+        </span>
+        <span class="panel-toggle-arrow open" id="configArrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </span>
+      </button>
 
-      <div class="params-section">
-        <h3>הנחיות לסיכום</h3>
-        <div id="paramsList"></div>
-        <button class="btn-secondary" onclick="addParameter()">+ הוסף הנחיה</button>
+      <div class="config-body" id="configBody">
+        <div class="config-grid">
+          <div class="field-group">
+            <label class="field-label" for="language">שפת פלט</label>
+            <select id="language" class="field-input field-select">
+              <option value="עברית">עברית</option>
+              <option value="English">English</option>
+              <option value="ערבית">ערבית</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="format">פורמט</label>
+            <select id="format" class="field-input field-select">
+              <option value="bullet_points">נקודות</option>
+              <option value="paragraph">פסקה</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="maxLength">מקסימום מילים</label>
+            <input type="number" id="maxLength" class="field-input" value="400" min="50" max="2000" />
+          </div>
+        </div>
+
+        <div class="params-section">
+          <div class="params-header">
+            <span class="field-label">הנחיות לסיכום</span>
+            <button class="add-btn" onclick="addParameter()" type="button">+ הוסף</button>
+          </div>
+          <div id="paramsList" class="params-list"></div>
+        </div>
       </div>
     </section>
 
-    <!-- Summarize Button -->
+    <!-- Summarize -->
     <div class="action-row">
-      <button id="summarizeBtn" class="btn-summarize" onclick="summarize()">▶ סכם מסמכים</button>
+      <button id="summarizeBtn" class="summarize-btn" onclick="summarize()" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+        סכם מסמכים
+      </button>
     </div>
 
     <!-- Loading -->
     <div id="loadingState" class="loading-state hidden">
-      <div class="spinner"></div>
-      <p id="loadingText">מעבד קבצים...</p>
+      <div class="loading-ring"></div>
+      <p id="loadingText" class="loading-text">מעבד...</p>
     </div>
 
     <!-- Results -->
     <section id="resultsSection" class="hidden">
-      <h2 class="results-title">תוצאות</h2>
-      <div id="resultsContainer"></div>
+      <div class="results-heading">
+        <h2 class="results-title">סיכומים</h2>
+        <span id="resultsCount" class="results-count"></span>
+      </div>
+      <div id="resultsContainer" class="results-list"></div>
     </section>
+
   </main>
 
   <script src="app.js"></script>

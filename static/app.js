@@ -1,6 +1,7 @@
 'use strict';
 
 let selectedFiles = [];
+let configOpen = true;
 
 const DEFAULT_PARAMS = [
   "סכם את הנקודות העיקריות ב-4 עד 6 נקודות",
@@ -9,15 +10,16 @@ const DEFAULT_PARAMS = [
   "ציין את הגורמים המעורבים (אנשים / חברות / גופים)"
 ];
 
-// ─── Init ───────────────────────────────────────────────────────────────────
+// ─── Init ──────────────────────────────────────────────────────────────────
 
 document.addEventListener("DOMContentLoaded", () => {
   initDropZone();
   initParams();
   checkSettings();
+  document.getElementById("settingsToggle").addEventListener("click", openSettingsPanel);
 });
 
-// ─── Settings ────────────────────────────────────────────────────────────────
+// ─── Settings ──────────────────────────────────────────────────────────────
 
 async function checkSettings() {
   try {
@@ -26,9 +28,9 @@ async function checkSettings() {
     if (!data.has_api_key) {
       openSettingsPanel();
       showBanner("יש להגדיר API Key לפני השימוש", "warning");
-      showKeyStatus("✗ מפתח לא מוגדר", true);
+      setKeyStatus("✗ מפתח לא מוגדר", true);
     } else {
-      showKeyStatus(`✓ מפתח מוגדר (${data.api_key_hint})`);
+      setKeyStatus(`✓ מפתח מוגדר (${data.api_key_hint})`);
       const sel = document.getElementById("modelSelect");
       if (data.model) sel.value = data.model;
     }
@@ -38,7 +40,7 @@ async function checkSettings() {
 }
 
 async function saveSettings() {
-  const key = document.getElementById("apiKeyInput").value.trim();
+  const key   = document.getElementById("apiKeyInput").value.trim();
   const model = document.getElementById("modelSelect").value;
   try {
     await fetch("/settings", {
@@ -46,7 +48,7 @@ async function saveSettings() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ api_key: key, model })
     });
-    showKeyStatus("נשמר ✓");
+    setKeyStatus("נשמר ✓");
     hideBanner();
     setTimeout(checkSettings, 500);
   } catch {
@@ -56,35 +58,24 @@ async function saveSettings() {
 
 function toggleKeyVisibility() {
   const input = document.getElementById("apiKeyInput");
-  const btn = document.getElementById("toggleKeyVisibility");
-  if (input.type === "password") {
-    input.type = "text";
-    btn.textContent = "הסתר";
-  } else {
-    input.type = "password";
-    btn.textContent = "הצג";
-  }
+  input.type = input.type === "password" ? "text" : "password";
 }
 
 function openSettingsPanel() {
-  document.getElementById("settingsPanel").classList.remove("hidden");
+  document.getElementById("settingsOverlay").classList.remove("hidden");
 }
 
 function closeSettingsPanel() {
-  document.getElementById("settingsPanel").classList.add("hidden");
+  document.getElementById("settingsOverlay").classList.add("hidden");
 }
 
-document.getElementById("settingsToggle").addEventListener("click", () => {
-  document.getElementById("settingsPanel").classList.toggle("hidden");
-});
-
-function showKeyStatus(msg, missing = false) {
+function setKeyStatus(msg, missing = false) {
   const el = document.getElementById("keyStatus");
   el.textContent = msg;
   el.className = "key-status" + (missing ? " missing" : "");
 }
 
-// ─── Banner ───────────────────────────────────────────────────────────────────
+// ─── Banner ────────────────────────────────────────────────────────────────
 
 function showBanner(msg, type) {
   const el = document.getElementById("banner");
@@ -96,20 +87,29 @@ function hideBanner() {
   document.getElementById("banner").className = "banner hidden";
 }
 
-// ─── Drop Zone ────────────────────────────────────────────────────────────────
+// ─── Config Toggle ─────────────────────────────────────────────────────────
+
+function toggleConfig() {
+  configOpen = !configOpen;
+  const body  = document.getElementById("configBody");
+  const arrow = document.getElementById("configArrow");
+  body.classList.toggle("collapsed", !configOpen);
+  arrow.classList.toggle("open", configOpen);
+}
+
+// ─── Drop Zone ─────────────────────────────────────────────────────────────
 
 function initDropZone() {
-  const zone = document.getElementById("dropZone");
+  const zone  = document.getElementById("dropZone");
   const input = document.getElementById("fileInput");
 
-  zone.addEventListener("dragover", e => {
-    e.preventDefault();
-    zone.classList.add("drag-over");
+  zone.addEventListener("dragover", e => { e.preventDefault(); zone.classList.add("over"); });
+  zone.addEventListener("dragleave", e => {
+    if (!zone.contains(e.relatedTarget)) zone.classList.remove("over");
   });
-  zone.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
   zone.addEventListener("drop", e => {
     e.preventDefault();
-    zone.classList.remove("drag-over");
+    zone.classList.remove("over");
     addFiles(Array.from(e.dataTransfer.files));
   });
   zone.addEventListener("click", e => {
@@ -122,47 +122,39 @@ function initDropZone() {
 }
 
 function addFiles(newFiles) {
-  const allowed = newFiles.filter(f =>
-    f.name.toLowerCase().endsWith(".pdf") ||
-    f.name.toLowerCase().endsWith(".docx") ||
-    f.name.toLowerCase().endsWith(".doc")
-  );
-  if (allowed.length !== newFiles.length) {
-    showBanner("קבצים לא נתמכים הוסרו. מותר רק PDF ו-DOCX.", "warning");
-    setTimeout(hideBanner, 3000);
+  const ok = newFiles.filter(f => /\.(pdf|docx|doc)$/i.test(f.name));
+  if (ok.length !== newFiles.length) {
+    showBanner("חלק מהקבצים לא נתמכים — מותר PDF ו-DOCX בלבד", "warning");
+    setTimeout(hideBanner, 3500);
   }
-  allowed.forEach(f => {
-    if (!selectedFiles.find(x => x.name === f.name && x.size === f.size)) {
+  ok.forEach(f => {
+    if (!selectedFiles.find(x => x.name === f.name && x.size === f.size))
       selectedFiles.push(f);
-    }
   });
   renderFileList();
 }
 
-function removeFile(index) {
-  selectedFiles.splice(index, 1);
+function removeFile(idx) {
+  selectedFiles.splice(idx, 1);
   renderFileList();
 }
 
 function renderFileList() {
   const list = document.getElementById("fileList");
-  if (selectedFiles.length === 0) {
-    list.classList.add("hidden");
-    return;
-  }
+  if (!selectedFiles.length) { list.classList.add("hidden"); return; }
   list.classList.remove("hidden");
-  list.innerHTML = selectedFiles.map((f, i) => `
-    <div class="file-item">
-      <span class="file-item-name">
-        ${f.name.toLowerCase().endsWith(".pdf") ? "📄" : "📝"}
-        ${escapeHtml(f.name)}
-      </span>
-      <button class="file-remove" onclick="removeFile(${i})" title="הסר">✕</button>
-    </div>
-  `).join("");
+  list.innerHTML = selectedFiles.map((f, i) => {
+    const ext = (f.name.split(".").pop() || "").toUpperCase();
+    return `
+      <div class="file-chip">
+        <span class="chip-ext">${escHtml(ext)}</span>
+        <span class="chip-name" title="${escHtml(f.name)}">${escHtml(f.name)}</span>
+        <button class="chip-remove" onclick="removeFile(${i})" title="הסר">✕</button>
+      </div>`;
+  }).join("");
 }
 
-// ─── Parameters ───────────────────────────────────────────────────────────────
+// ─── Parameters ────────────────────────────────────────────────────────────
 
 function initParams() {
   DEFAULT_PARAMS.forEach(p => addParameter(p));
@@ -170,26 +162,24 @@ function initParams() {
 
 function addParameter(value = "") {
   const list = document.getElementById("paramsList");
-  const div = document.createElement("div");
+  const div  = document.createElement("div");
   div.className = "param-item";
   div.innerHTML = `
-    <span class="param-bullet">•</span>
-    <input type="text" value="${escapeHtml(value)}" placeholder="הוסף הנחיה..." />
-    <button class="file-remove" onclick="this.parentElement.remove()" title="הסר">✕</button>
-  `;
+    <span class="param-dot" aria-hidden="true"></span>
+    <input type="text" class="field-input" value="${escHtml(value)}" placeholder="הוסף הנחיה…" />
+    <button class="param-del" onclick="this.parentElement.remove()" title="הסר">✕</button>`;
   list.appendChild(div);
 }
 
-function getParametersList() {
+function getParams() {
   return Array.from(document.querySelectorAll("#paramsList .param-item input"))
-    .map(i => i.value.trim())
-    .filter(Boolean);
+    .map(i => i.value.trim()).filter(Boolean);
 }
 
-// ─── Summarize ────────────────────────────────────────────────────────────────
+// ─── Summarize ─────────────────────────────────────────────────────────────
 
 async function summarize() {
-  if (selectedFiles.length === 0) {
+  if (!selectedFiles.length) {
     showBanner("יש לבחור לפחות קובץ אחד", "warning");
     return;
   }
@@ -198,23 +188,22 @@ async function summarize() {
   btn.disabled = true;
   hideBanner();
 
-  const formData = new FormData();
-  selectedFiles.forEach(f => formData.append("files", f));
+  const fd = new FormData();
+  selectedFiles.forEach(f => fd.append("files", f));
 
-  const config = {
-    language: document.getElementById("language").value,
+  const cfg = {
+    language:      document.getElementById("language").value,
     output_format: document.getElementById("format").value,
-    max_length: parseInt(document.getElementById("maxLength").value) || 400,
-    parameters: getParametersList()
+    max_length:    parseInt(document.getElementById("maxLength").value) || 400,
+    parameters:    getParams()
   };
-  formData.append("config_override", JSON.stringify(config));
+  fd.append("config_override", JSON.stringify(cfg));
 
   showLoading(selectedFiles.length);
 
   try {
-    const res = await fetch("/summarize", { method: "POST", body: formData });
+    const res  = await fetch("/summarize", { method: "POST", body: fd });
     const data = await res.json();
-
     hideLoading();
 
     if (data.error === "missing_api_key") {
@@ -235,7 +224,7 @@ async function summarize() {
 function showLoading(count) {
   document.getElementById("loadingState").classList.remove("hidden");
   document.getElementById("loadingText").textContent =
-    `מעבד ${count} קבצים... (זה עשוי לקחת מספר שניות)`;
+    `מעבד ${count} ${count === 1 ? "קובץ" : "קבצים"}…`;
   document.getElementById("resultsSection").classList.add("hidden");
 }
 
@@ -243,52 +232,62 @@ function hideLoading() {
   document.getElementById("loadingState").classList.add("hidden");
 }
 
-// ─── Results ──────────────────────────────────────────────────────────────────
+// ─── Results ───────────────────────────────────────────────────────────────
 
 function renderResults(results) {
-  const section = document.getElementById("resultsSection");
+  const section   = document.getElementById("resultsSection");
   const container = document.getElementById("resultsContainer");
-  section.classList.remove("hidden");
-  container.innerHTML = "";
+  const countEl   = document.getElementById("resultsCount");
 
-  results.forEach(r => {
+  section.classList.remove("hidden");
+  const ok = results.filter(r => !r.error).length;
+  countEl.textContent = `${ok} מתוך ${results.length} הצליחו`;
+
+  container.innerHTML = "";
+  results.forEach((r, i) => {
     const card = document.createElement("div");
-    card.className = "result-card" + (r.error ? " error" : "");
+    card.className = "result-card" + (r.error ? " is-error" : "");
+    card.style.animationDelay = `${i * 0.06}s`;
 
     const meta = r.char_count
-      ? `${r.char_count.toLocaleString()} תווים${r.truncated ? " · נחתך ל-50,000" : ""}`
+      ? `${r.char_count.toLocaleString()} תווים${r.truncated ? "" : ""}`
       : "";
 
+    const summaryJson = JSON.stringify(r.summary || "");
+
     card.innerHTML = `
-      <div class="result-header">
-        <div>
-          <div class="result-filename">
-            ${r.error ? "⚠️" : "📄"} ${escapeHtml(r.filename)}
-            ${r.truncated ? '<span class="truncated-badge">נחתך</span>' : ""}
-          </div>
-          ${meta ? `<div class="result-meta">${meta}</div>` : ""}
+      <div class="result-card-head">
+        <div class="result-file-info">
+          <div class="result-filename">${r.error ? "⚠ " : ""}${escHtml(r.filename)}</div>
+          ${meta ? `
+            <div class="result-meta">
+              ${escHtml(meta)}
+              ${r.truncated ? '<span class="truncated-tag">נחתך</span>' : ""}
+            </div>` : ""}
         </div>
         ${!r.error ? `
           <div class="result-actions">
-            <button class="btn-export" onclick="exportSummary('${escapeAttr(r.filename)}', ${JSON.stringify(r.summary)}, 'pdf')">⬇ PDF</button>
-            <button class="btn-export" onclick="exportSummary('${escapeAttr(r.filename)}', ${JSON.stringify(r.summary)}, 'docx')">⬇ Word</button>
-          </div>
-        ` : ""}
+            <button class="export-btn" onclick="exportFile('${escAttr(r.filename)}', ${summaryJson}, 'pdf')">
+              ↓ PDF
+            </button>
+            <button class="export-btn" onclick="exportFile('${escAttr(r.filename)}', ${summaryJson}, 'docx')">
+              ↓ Word
+            </button>
+          </div>` : ""}
       </div>
       ${r.error
-        ? `<div class="result-error">שגיאה: ${escapeHtml(r.error)}</div>`
-        : `<div class="result-body">${escapeHtml(r.summary)}</div>`
-      }
-    `;
+        ? `<div class="result-error-body">${escHtml(r.error)}</div>`
+        : `<div class="result-body">${escHtml(r.summary)}</div>`}`;
+
     container.appendChild(card);
   });
 
-  section.scrollIntoView({ behavior: "smooth" });
+  section.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-// ─── Export ───────────────────────────────────────────────────────────────────
+// ─── Export ────────────────────────────────────────────────────────────────
 
-async function exportSummary(filename, summary, format) {
+async function exportFile(filename, summary, format) {
   try {
     const res = await fetch(`/export/${format}`, {
       method: "POST",
@@ -297,11 +296,10 @@ async function exportSummary(filename, summary, format) {
     });
     if (!res.ok) throw new Error("שגיאת שרת");
     const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const base = filename.replace(/\.[^.]+$/, "");
-    a.href = url;
-    a.download = `${base}_summary.${format}`;
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = filename.replace(/\.[^.]+$/, "") + `_summary.${format}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -311,17 +309,17 @@ async function exportSummary(filename, summary, format) {
   }
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Utils ─────────────────────────────────────────────────────────────────
 
-function escapeHtml(str) {
-  if (!str) return "";
-  return String(str)
+function escHtml(s) {
+  if (!s) return "";
+  return String(s)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
 
-function escapeAttr(str) {
-  return String(str).replace(/'/g, "\\'");
+function escAttr(s) {
+  return String(s).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
