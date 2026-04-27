@@ -5,7 +5,7 @@ from fastapi import APIRouter
 
 router = APIRouter()
 
-SETTINGS_FILE = Path("settings.json")
+SETTINGS_FILE = Path(__file__).parent.parent / "settings.json"
 
 
 def load_settings() -> dict:

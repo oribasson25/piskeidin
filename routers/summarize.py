@@ -9,7 +9,7 @@ from processors.docx_processor import extract_docx_text
 
 router = APIRouter()
 
-CONFIG_FILE = Path("config.yaml")
+CONFIG_FILE = Path(__file__).parent.parent / "config.yaml"
 
 
 def load_config() -> dict:
