@@ -22,31 +22,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // ─── Settings ──────────────────────────────────────────────────────────────
 
-async function checkSettings() {
-  try {
-    const res  = await fetch("/settings");
-    const data = await res.json();
-    const sel  = document.getElementById("modelSelect");
-    if (data.model) sel.value = data.model;
-  } catch {
-    showBanner("לא ניתן להתחבר לשרת", "error");
-  }
+const MODEL_KEY = "libra_selected_model";
+
+function checkSettings() {
+  const saved = localStorage.getItem(MODEL_KEY);
+  if (saved) document.getElementById("modelSelect").value = saved;
 }
 
-async function saveSettings() {
+function saveSettings() {
   const model = document.getElementById("modelSelect").value;
-  try {
-    await fetch("/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model })
-    });
-    showBanner("הגדרות נשמרו ✓", "success");
-    setTimeout(hideBanner, 2000);
-    setTimeout(checkSettings, 300);
-  } catch {
-    showBanner("שגיאה בשמירת ההגדרות", "error");
-  }
+  localStorage.setItem(MODEL_KEY, model);
+  showBanner("הגדרות נשמרו ✓", "success");
+  setTimeout(hideBanner, 2000);
 }
 
 function openSettingsPanel() {
@@ -178,7 +165,8 @@ async function summarize() {
     language:      document.getElementById("language").value,
     output_format: document.getElementById("format").value,
     max_length:    parseInt(document.getElementById("maxLength").value) || 400,
-    parameters:    getParams()
+    parameters:    getParams(),
+    model:         localStorage.getItem(MODEL_KEY) || "claude-opus-4-5"
   };
   fd.append("config_override", JSON.stringify(cfg));
 
