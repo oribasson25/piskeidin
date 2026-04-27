@@ -78,7 +78,9 @@ async def summarize(
         override = json.loads(config_override)
         config["summarization"].update(override)
 
-    model = config["summarization"].get("model", "claude-opus-4-5")
+    from routers.settings import load_settings as load_user_settings
+    _s = load_user_settings()
+    model = _s.get("model") or config["summarization"].get("model", "claude-opus-4-5")
 
     # Step 1 — extract text from every file
     ok_docs = []   # (filename, text, char_count)
