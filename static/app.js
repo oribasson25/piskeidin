@@ -235,6 +235,29 @@ function hideLoading() {
 
 // ─── Results ───────────────────────────────────────────────────────────────
 
+function renderSummary(text) {
+  if (!text) return "";
+  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+  const isBullet = l => /^[•\-\*▪▸›»–◆◇○●■]\s/.test(l) || /^\d+[\.\)]\s/.test(l);
+
+  if (lines.some(isBullet)) {
+    let num = 0;
+    const items = lines.map(line => {
+      num++;
+      const clean = line
+        .replace(/^[•\-\*▪▸›»–◆◇○●■]\s*/, "")
+        .replace(/^\d+[\.\)]\s*/, "");
+      return `<li class="summary-item" style="animation-delay:${(num - 1) * 0.07}s">
+        <span class="summary-bullet">${num}</span>
+        <span class="summary-text">${escHtml(clean)}</span>
+      </li>`;
+    });
+    return `<ul class="summary-list">${items.join("")}</ul>`;
+  }
+
+  return lines.map(l => `<p class="summary-para">${escHtml(l)}</p>`).join("");
+}
+
 function renderResults(results) {
   const section   = document.getElementById("resultsSection");
   const container = document.getElementById("resultsContainer");
@@ -251,7 +274,7 @@ function renderResults(results) {
     card.style.animationDelay = `${i * 0.06}s`;
 
     const meta = r.char_count
-      ? `${r.char_count.toLocaleString()} תווים${r.truncated ? "" : ""}`
+      ? `${r.char_count.toLocaleString()} תווים`
       : "";
 
     const summaryJson = JSON.stringify(r.summary || "");
@@ -278,7 +301,7 @@ function renderResults(results) {
       </div>
       ${r.error
         ? `<div class="result-error-body">${escHtml(r.error)}</div>`
-        : `<div class="result-body">${escHtml(r.summary)}</div>`}`;
+        : `<div class="result-body">${renderSummary(r.summary)}</div>`}`;
 
     container.appendChild(card);
   });
