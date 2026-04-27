@@ -21,20 +21,26 @@ def get_client() -> anthropic.Anthropic:
     return anthropic.Anthropic(api_key=get_api_key())
 
 
+def _instructions_block(params: dict) -> str:
+    n = len(params["parameters"])
+    lines = "\n".join(f"{i+1}. {p}" for i, p in enumerate(params["parameters"]))
+    return n, lines
+
+
 def build_prompt(config: dict, text: str) -> str:
     params = config["summarization"]
-    instructions = "\n".join(f"  • {p}" for p in params["parameters"])
-    fmt = "נקודות (bullet points)" if params["output_format"] == "bullet_points" else "פסקה רציפה"
-    return f"""אתה מומחה לסיכום מסמכים. סכם את המסמך הבא לפי ההנחיות בלבד.
+    n, instructions = _instructions_block(params)
+    return f"""אתה מומחה לסיכום מסמכים. קרא את המסמך וענה בדיוק {n} נקודות — נקודה אחת לכל הנחיה.
 
-הנחיות:
+הנחיות (כל הנחיה = שורה אחת בפלט):
 {instructions}
 
-פורמט: {fmt}
-שפה: {params['language']}
-אורך מקסימלי: {params['max_length']} מילים
-
-השב אך ורק עם הסיכום, ללא הקדמות.
+כללי פורמט מחייבים:
+- החזר בדיוק {n} שורות
+- כל שורה מתחילה ב-• ואחריה תשובה קצרה לאותה הנחיה
+- שורה אחת בלבד לכל הנחיה — ללא שורות נוספות, ללא כותרות, ללא הקדמות
+- שפה: {params['language']}
+- אם מידע לא קיים במסמך, כתוב "לא צוין"
 
 ===== מסמך =====
 {text[:50000]}
@@ -43,22 +49,22 @@ def build_prompt(config: dict, text: str) -> str:
 
 def build_combined_prompt(config: dict, docs: list) -> str:
     params = config["summarization"]
-    instructions = "\n".join(f"  • {p}" for p in params["parameters"])
-    fmt = "נקודות (bullet points)" if params["output_format"] == "bullet_points" else "פסקה רציפה"
+    n, instructions = _instructions_block(params)
     docs_section = "\n\n".join(
         f"===== מסמך {i + 1}: {name} =====\n{text}\n=================="
         for i, (name, text) in enumerate(docs)
     )
-    return f"""אתה מומחה לסיכום מסמכים. סכם את כל המסמכים הבאים יחד לסיכום אחד משולב לפי ההנחיות בלבד.
+    return f"""אתה מומחה לסיכום מסמכים. קרא את כל המסמכים וענה בדיוק {n} נקודות משולבות — נקודה אחת לכל הנחיה.
 
-הנחיות:
+הנחיות (כל הנחיה = שורה אחת בפלט):
 {instructions}
 
-פורמט: {fmt}
-שפה: {params['language']}
-אורך מקסימלי: {params['max_length']} מילים
-
-השב אך ורק עם הסיכום המשולב, ללא הקדמות.
+כללי פורמט מחייבים:
+- החזר בדיוק {n} שורות
+- כל שורה מתחילה ב-• ואחריה תשובה קצרה לאותה הנחיה, המשלבת מידע מכל המסמכים
+- שורה אחת בלבד לכל הנחיה — ללא שורות נוספות, ללא כותרות, ללא הקדמות
+- שפה: {params['language']}
+- אם מידע לא קיים, כתוב "לא צוין"
 
 {docs_section}"""
 
