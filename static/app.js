@@ -26,41 +26,27 @@ async function checkSettings() {
   try {
     const res  = await fetch("/settings");
     const data = await res.json();
-    if (!data.has_api_key) {
-      openSettingsPanel();
-      showBanner("יש להגדיר API Key לפני השימוש", "warning");
-      setKeyStatus("✗ מפתח לא מוגדר", true);
-    } else {
-      const src = data.from_env ? " · מוגדר ב-Environment Variable" : "";
-      setKeyStatus(`✓ מפתח מוגדר (${data.api_key_hint})${src}`);
-      const sel = document.getElementById("modelSelect");
-      if (data.model) sel.value = data.model;
-    }
+    const sel  = document.getElementById("modelSelect");
+    if (data.model) sel.value = data.model;
   } catch {
     showBanner("לא ניתן להתחבר לשרת", "error");
   }
 }
 
 async function saveSettings() {
-  const key   = document.getElementById("apiKeyInput").value.trim();
   const model = document.getElementById("modelSelect").value;
   try {
     await fetch("/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ api_key: key, model })
+      body: JSON.stringify({ model })
     });
-    setKeyStatus("נשמר ✓");
-    hideBanner();
-    setTimeout(checkSettings, 500);
+    showBanner("הגדרות נשמרו ✓", "success");
+    setTimeout(hideBanner, 2000);
+    setTimeout(checkSettings, 300);
   } catch {
     showBanner("שגיאה בשמירת ההגדרות", "error");
   }
-}
-
-function toggleKeyVisibility() {
-  const input = document.getElementById("apiKeyInput");
-  input.type = input.type === "password" ? "text" : "password";
 }
 
 function openSettingsPanel() {
@@ -70,12 +56,6 @@ function openSettingsPanel() {
 
 function closeSettingsPanel() {
   document.getElementById("settingsOverlay").classList.add("hidden");
-}
-
-function setKeyStatus(msg, missing = false) {
-  const el = document.getElementById("keyStatus");
-  el.textContent = msg;
-  el.className = "key-status" + (missing ? " missing" : "");
 }
 
 // ─── Banner ────────────────────────────────────────────────────────────────
