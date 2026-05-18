@@ -1,48 +1,87 @@
 'use strict';
 
 let selectedFiles = [];
-let configOpen = true;
-let lastResults = [];
+let lastVerdictResults = [];
+let keyVisible = false;
 
-const DEFAULT_PARAMS = [
-  "סכם את הנקודות העיקריות ב-4 עד 6 נקודות",
-  "ציין תאריכים וחתימות חשובים אם קיימים",
-  "ציין פעולות נדרשות או החלטות שיש לקבל",
-  "ציין את הגורמים המעורבים (אנשים / חברות / גופים)"
-];
+const MODEL_KEY = "libra_selected_model";
 
 // ─── Init ──────────────────────────────────────────────────────────────────
 
 document.addEventListener("DOMContentLoaded", () => {
   initDropZone();
-  initParams();
   checkSettings();
   document.getElementById("settingsToggle").addEventListener("click", openSettingsPanel);
 });
 
 // ─── Settings ──────────────────────────────────────────────────────────────
 
-const MODEL_KEY = "libra_selected_model";
-
-function checkSettings() {
+async function checkSettings() {
   const saved = localStorage.getItem(MODEL_KEY);
   if (saved) document.getElementById("modelSelect").value = saved;
+
+  try {
+    const res  = await fetch("/settings");
+    const data = await res.json();
+    const el   = document.getElementById("keyStatus");
+    if (data.has_api_key) {
+      el.textContent = `✓ מפתח מוגדר (${data.api_key_hint})`;
+      el.className   = "key-status";
+    } else {
+      el.textContent = "✗ מפתח לא מוגדר";
+      el.className   = "key-status missing";
+    }
+  } catch (_) {}
 }
 
-function saveSettings() {
+function toggleKeyVisibility() {
+  keyVisible = !keyVisible;
+  const input  = document.getElementById("apiKeyInput");
+  const iconEl = document.getElementById("eyeIcon");
+  input.type   = keyVisible ? "text" : "password";
+  iconEl.innerHTML = keyVisible
+    ? `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+       <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+       <line x1="1" y1="1" x2="23" y2="23"/>`
+    : `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+       <circle cx="12" cy="12" r="3"/>`;
+}
+
+async function saveSettings() {
+  const key   = document.getElementById("apiKeyInput").value.trim();
   const model = document.getElementById("modelSelect").value;
   localStorage.setItem(MODEL_KEY, model);
+  try {
+    await fetch("/settings", {
+      method:  "PUT",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ api_key: key || undefined, model })
+    });
+  } catch (_) {}
   showBanner("הגדרות נשמרו ✓", "success");
   setTimeout(hideBanner, 2000);
+  await checkSettings();
 }
 
 function openSettingsPanel() {
-  document.getElementById("settingsOverlay").classList.remove("hidden");
+  const overlay = document.getElementById("settingsOverlay");
+  const drawer  = document.getElementById("settingsDrawer");
+  drawer.classList.remove("is-closing");
+  overlay.classList.remove("is-closing");
+  overlay.classList.remove("hidden");
   checkSettings();
 }
 
 function closeSettingsPanel() {
-  document.getElementById("settingsOverlay").classList.add("hidden");
+  const overlay = document.getElementById("settingsOverlay");
+  const drawer  = document.getElementById("settingsDrawer");
+  overlay.classList.add("is-closing");
+  drawer.classList.add("is-closing");
+  setTimeout(() => {
+    overlay.classList.add("hidden");
+    overlay.classList.remove("is-closing");
+    drawer.classList.remove("is-closing");
+  }, 240);
 }
 
 // ─── Banner ────────────────────────────────────────────────────────────────
@@ -55,16 +94,6 @@ function showBanner(msg, type) {
 
 function hideBanner() {
   document.getElementById("banner").className = "banner hidden";
-}
-
-// ─── Config Toggle ─────────────────────────────────────────────────────────
-
-function toggleConfig() {
-  configOpen = !configOpen;
-  const body  = document.getElementById("configBody");
-  const arrow = document.getElementById("configArrow");
-  body.classList.toggle("collapsed", !configOpen);
-  arrow.classList.toggle("open", configOpen);
 }
 
 // ─── Drop Zone ─────────────────────────────────────────────────────────────
@@ -105,8 +134,20 @@ function addFiles(newFiles) {
 }
 
 function removeFile(idx) {
-  selectedFiles.splice(idx, 1);
-  renderFileList();
+  const list  = document.getElementById("fileList");
+  const chips = list.querySelectorAll(".file-chip");
+  const chip  = chips[idx];
+  if (chip) {
+    chip.classList.add("removing");
+    chip.setAttribute("aria-hidden", "true");
+    setTimeout(() => {
+      selectedFiles.splice(idx, 1);
+      renderFileList();
+    }, 230);
+  } else {
+    selectedFiles.splice(idx, 1);
+    renderFileList();
+  }
 }
 
 function renderFileList() {
@@ -124,58 +165,27 @@ function renderFileList() {
   }).join("");
 }
 
-// ─── Parameters ────────────────────────────────────────────────────────────
+// ─── Analyze ───────────────────────────────────────────────────────────────
 
-function initParams() {
-  DEFAULT_PARAMS.forEach(p => addParameter(p));
-}
-
-function addParameter(value = "") {
-  const list = document.getElementById("paramsList");
-  const div  = document.createElement("div");
-  div.className = "param-item";
-  div.innerHTML = `
-    <span class="param-dot" aria-hidden="true"></span>
-    <input type="text" class="field-input" value="${escHtml(value)}" placeholder="הוסף הנחיה…" />
-    <button class="param-del" onclick="this.parentElement.remove()" title="הסר">✕</button>`;
-  list.appendChild(div);
-}
-
-function getParams() {
-  return Array.from(document.querySelectorAll("#paramsList .param-item input"))
-    .map(i => i.value.trim()).filter(Boolean);
-}
-
-// ─── Summarize ─────────────────────────────────────────────────────────────
-
-async function summarize() {
+async function analyzeDocuments() {
   if (!selectedFiles.length) {
     showBanner("יש לבחור לפחות קובץ אחד", "warning");
     return;
   }
 
-  const btn = document.getElementById("summarizeBtn");
+  const btn = document.getElementById("analyzeBtn");
   btn.disabled = true;
+  btn.innerHTML = `<span class="btn-spinner"></span>מנתח…`;
   hideBanner();
+  document.getElementById("verdictSection").classList.add("hidden");
+  document.getElementById("loadingState").classList.remove("hidden");
 
   const fd = new FormData();
   selectedFiles.forEach(f => fd.append("files", f));
 
-  const cfg = {
-    language:      document.getElementById("language").value,
-    output_format: document.getElementById("format").value,
-    max_length:    parseInt(document.getElementById("maxLength").value) || 400,
-    parameters:    getParams(),
-    model:         localStorage.getItem(MODEL_KEY) || "claude-opus-4-5"
-  };
-  fd.append("config_override", JSON.stringify(cfg));
-
-  showLoading(selectedFiles.length);
-
   try {
-    const res  = await fetch("/summarize", { method: "POST", body: fd });
+    const res  = await fetch("/analyze", { method: "POST", body: fd });
     const data = await res.json();
-    hideLoading();
 
     if (data.error === "missing_api_key") {
       openSettingsPanel();
@@ -183,116 +193,74 @@ async function summarize() {
       return;
     }
 
-    renderResults(data.results);
+    lastVerdictResults = data.results;
+    renderVerdictTable(data.results);
   } catch (e) {
-    hideLoading();
     showBanner("שגיאת רשת: " + e.message, "error");
   } finally {
+    document.getElementById("loadingState").classList.add("hidden");
     btn.disabled = false;
+    btn.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <polygon points="5 3 19 12 5 21 5 3"/>
+      </svg>
+      נתח פסקי דין`;
   }
 }
 
-function showLoading(count) {
-  document.getElementById("loadingState").classList.remove("hidden");
-  document.getElementById("loadingText").textContent =
-    `מעבד ${count} ${count === 1 ? "קובץ" : "קבצים"}…`;
-  document.getElementById("resultsSection").classList.add("hidden");
+function fmtAmountText(val) {
+  if (val === null || val === undefined) return "לא צוין";
+  if (val === 0) return "₪ 0";
+  return `₪ ${Number(val).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function hideLoading() {
-  document.getElementById("loadingState").classList.add("hidden");
-}
+function renderVerdictTable(results) {
+  const section = document.getElementById("verdictSection");
+  const tbody   = document.getElementById("verdictTableBody");
+  const countEl = document.getElementById("verdictCount");
 
-// ─── Results ───────────────────────────────────────────────────────────────
-
-function renderSummary(text) {
-  if (!text) return "";
-  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
-  const isBullet = l => /^[•\-\*▪▸›»–◆◇○●■]\s/.test(l) || /^\d+[\.\)]\s/.test(l);
-
-  if (lines.some(isBullet)) {
-    let num = 0;
-    const items = lines.map(line => {
-      num++;
-      const clean = line
-        .replace(/^[•\-\*▪▸›»–◆◇○●■]\s*/, "")
-        .replace(/^\d+[\.\)]\s*/, "");
-      return `<li class="summary-item" style="animation-delay:${(num - 1) * 0.07}s">
-        <span class="summary-bullet">${num}</span>
-        <span class="summary-text">${escHtml(clean)}</span>
-      </li>`;
-    });
-    return `<ul class="summary-list">${items.join("")}</ul>`;
-  }
-
-  return lines.map(l => `<p class="summary-para">${escHtml(l)}</p>`).join("");
-}
-
-function renderResults(results) {
-  lastResults = results;
-
-  const section   = document.getElementById("resultsSection");
-  const container = document.getElementById("resultsContainer");
-  const countEl   = document.getElementById("resultsCount");
-
-  section.classList.remove("hidden");
   const ok = results.filter(r => !r.error).length;
-  countEl.textContent = `${ok} מתוך ${results.length} הצליחו`;
+  countEl.textContent = `${ok} מתוך ${results.length} עובדו בהצלחה`;
 
-  container.innerHTML = "";
-  results.forEach((r, i) => {
-    const card = document.createElement("div");
-    card.className = "result-card" + (r.error ? " is-error" : "");
-    card.style.animationDelay = `${i * 0.06}s`;
-
-    const meta = r.char_count
-      ? `${r.char_count.toLocaleString()} תווים`
-      : "";
-
-    card.innerHTML = `
-      <div class="result-card-head">
-        <div class="result-file-info">
-          <div class="result-filename">${r.error ? "⚠ " : ""}${escHtml(r.filename)}</div>
-          ${meta ? `
-            <div class="result-meta">
-              ${escHtml(meta)}
-              ${r.truncated ? '<span class="truncated-tag">נחתך</span>' : ""}
-            </div>` : ""}
-        </div>
-        ${!r.error ? `
-          <div class="result-actions">
-            <button class="export-btn" onclick="exportResult(${i}, 'pdf')">↓ PDF</button>
-            <button class="export-btn" onclick="exportResult(${i}, 'docx')">↓ Word</button>
-          </div>` : ""}
-      </div>
-      ${r.error
-        ? `<div class="result-error-body">${escHtml(r.error)}</div>`
-        : `<div class="result-body">${renderSummary(r.summary)}</div>`}`;
-
-    container.appendChild(card);
+  tbody.innerHTML = "";
+  results.forEach(r => {
+    const tr = document.createElement("tr");
+    if (r.error) {
+      tr.className = "is-error";
+      tr.innerHTML = `
+        <td colspan="6">${escHtml(r.filename)} — שגיאה: ${escHtml(r.error)}</td>`;
+    } else {
+      tr.innerHTML = `
+        <td class="court-cell">${escHtml(r.court || "לא צוין")}</td>
+        <td class="judge-cell">${escHtml(r.judge || "לא צוין")}</td>
+        <td>${escHtml(r.case_description || "לא צוין")}</td>
+        <td class="verdict-cell">${escHtml(r.verdict || "לא צוין")}</td>
+        <td class="amount-cell">${escHtml(fmtAmountText(r.amount_before_vat))}</td>
+        <td class="amount-cell">${escHtml(fmtAmountText(r.amount_after_vat))}</td>`;
+    }
+    tbody.appendChild(tr);
   });
 
+  section.classList.remove("hidden");
   section.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-// ─── Export ────────────────────────────────────────────────────────────────
+// ─── Excel Export ──────────────────────────────────────────────────────────
 
-async function exportResult(idx, format) {
-  const r = lastResults[idx];
-  if (!r) return;
-  const { filename, summary } = r;
+async function exportExcel() {
+  if (!lastVerdictResults.length) return;
   try {
-    const res = await fetch(`/export/${format}`, {
-      method: "POST",
+    const res = await fetch("/export/excel", {
+      method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filename, summary })
+      body:    JSON.stringify({ results: lastVerdictResults })
     });
     if (!res.ok) throw new Error(`שגיאת שרת ${res.status}`);
     const blob = await res.blob();
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement("a");
     a.href     = url;
-    a.download = filename.replace(/\.[^.]+$/, "") + `_summary.${format}`;
+    a.download = "piskei_din.xlsx";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -311,8 +279,4 @@ function escHtml(s) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-}
-
-function escAttr(s) {
-  return String(s).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
