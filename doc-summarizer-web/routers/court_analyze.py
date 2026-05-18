@@ -9,9 +9,11 @@ from processors.docx_processor import extract_docx_text
 router = APIRouter()
 
 
-def get_client() -> anthropic.Anthropic:
-    from routers.settings import get_api_key
-    return anthropic.Anthropic(api_key=get_api_key())
+def get_client():
+    from routers.settings import get_api_key, load_settings
+    key   = get_api_key()
+    model = load_settings().get("model", "claude-sonnet-4-5")
+    return anthropic.Anthropic(api_key=key), model
 
 
 def build_extraction_prompt(text: str) -> str:
@@ -86,7 +88,7 @@ def _parse_json_response(text: str) -> dict:
 @router.post("/analyze")
 async def analyze(files: List[UploadFile] = File(...)):
     try:
-        client = get_client()
+        client, model = get_client()
     except ValueError:
         return {"error": "missing_api_key", "results": []}
 
@@ -110,7 +112,7 @@ async def analyze(files: List[UploadFile] = File(...)):
 
             prompt = build_extraction_prompt(text)
             message = client.messages.create(
-                model="claude-opus-4-5",
+                model=model,
                 max_tokens=2000,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -137,14 +139,14 @@ async def analyze_summary(body: dict):
     if not cases:
         return {"summary": "אין נתונים לניתוח."}
     try:
-        client = get_client()
+        client, model = get_client()
     except ValueError:
         return {"error": "missing_api_key", "summary": ""}
 
     prompt = build_analysis_prompt(cases)
     try:
         message = client.messages.create(
-            model="claude-opus-4-5",
+            model=model,
             max_tokens=1500,
             messages=[{"role": "user", "content": prompt}]
         )

@@ -532,9 +532,9 @@ async function analyzeDocuments() {
   }
 }
 
-function fmtAmount(val) {
-  if (val === null || val === undefined) return '<span style="color:var(--c-text-faint)">לא צוין</span>';
-  if (val === 0) return '<span class="amount-zero">₪ 0</span>';
+function fmtAmountText(val) {
+  if (val === null || val === undefined) return "לא צוין";
+  if (val === 0) return "₪ 0";
   return `₪ ${Number(val).toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
@@ -555,29 +555,27 @@ function renderVerdictTable(results) {
         <td class="court-cell" colspan="4">${escHtml(r.filename)} — שגיאה: ${escHtml(r.error)}</td>
         <td></td><td></td>`;
     } else {
-      const beforeAmt = (r.amount_before_vat !== null && r.amount_before_vat !== undefined)
-        ? `<span class="amount-cell">${fmtAmount(r.amount_before_vat)}</span>`
-        : fmtAmount(null);
-      const afterAmt = (r.amount_after_vat !== null && r.amount_after_vat !== undefined)
-        ? `<span class="amount-cell">${fmtAmount(r.amount_after_vat)}</span>`
-        : fmtAmount(null);
-
       tr.innerHTML = `
         <td class="court-cell">${escHtml(r.court || "לא צוין")}</td>
         <td class="judge-cell">${escHtml(r.judge || "לא צוין")}</td>
         <td>${escHtml(r.case_description || "לא צוין")}</td>
         <td class="verdict-cell">${escHtml(r.verdict || "לא צוין")}</td>
-        <td>${beforeAmt}</td>
-        <td>${afterAmt}</td>`;
+        <td class="amount-cell">${escHtml(fmtAmountText(r.amount_before_vat))}</td>
+        <td class="amount-cell">${escHtml(fmtAmountText(r.amount_after_vat))}</td>`;
     }
     tbody.appendChild(tr);
   });
 
   section.classList.remove("hidden");
-  document.getElementById("courtAnalysis").classList.remove("hidden");
-  document.getElementById("analysisContent").textContent = "";
-  document.getElementById("loadAnalysisBtn").style.display = "flex";
   section.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  // Trigger court analysis automatically
+  const validCases = results.filter(r => !r.error);
+  if (validCases.length > 0) {
+    document.getElementById("courtAnalysis").classList.remove("hidden");
+    document.getElementById("analysisContent").textContent = "";
+    loadCourtAnalysis();
+  }
 }
 
 async function exportExcel() {
@@ -604,18 +602,17 @@ async function exportExcel() {
 }
 
 async function loadCourtAnalysis() {
-  const btn     = document.getElementById("loadAnalysisBtn");
+  const spinner = document.getElementById("analysisSpinner");
   const content = document.getElementById("analysisContent");
 
   const validCases = lastVerdictResults.filter(r => !r.error);
   if (!validCases.length) {
     content.textContent = "אין נתונים תקינים לניתוח.";
-    btn.style.display = "none";
+    spinner.style.display = "none";
     return;
   }
 
-  btn.disabled = true;
-  btn.innerHTML = `<span class="btn-spinner" style="border-color:rgba(255,199,0,.3);border-top-color:var(--c-yellow)"></span>מנתח…`;
+  spinner.style.display = "";
   content.textContent = "";
 
   try {
@@ -631,12 +628,10 @@ async function loadCourtAnalysis() {
       return;
     }
     content.textContent = data.summary || "לא התקבל ניתוח.";
-    btn.style.display = "none";
   } catch (e) {
-    content.textContent = "שגיאה: " + e.message;
+    content.textContent = "שגיאה בניתוח: " + e.message;
   } finally {
-    btn.disabled = false;
-    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>הפעל ניתוח בתי משפט`;
+    spinner.style.display = "none";
   }
 }
 

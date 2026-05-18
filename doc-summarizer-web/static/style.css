@@ -1210,28 +1210,6 @@ body::before {
   white-space: pre-wrap;
 }
 
-.load-analysis-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  margin: 0 var(--s6) var(--s5);
-  padding: var(--s3) var(--s5);
-  background: var(--c-yellow-bg2);
-  color: var(--c-yellow);
-  border: 1.5px solid rgba(255,199,0,.35);
-  border-radius: var(--r-md);
-  font-family: var(--f-body);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.16s, border-color 0.16s, transform 0.22s var(--spring-bouncy);
-}
-
-.load-analysis-btn:hover {
-  background: var(--c-yellow-bg);
-  border-color: var(--c-yellow);
-  transform: translateY(-1px);
-}
 
 /* ─── Reduced Motion ────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
