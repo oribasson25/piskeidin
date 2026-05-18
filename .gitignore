@@ -1,5 +1,6 @@
 # API keys and secrets
 doc-summarizer-web/settings.json
+settings.json
 
 # Python
 __pycache__/
@@ -19,6 +20,7 @@ env/
 # Exports
 *.xlsx
 *.tmp
+/tmp/
 
 # OS
 .DS_Store
