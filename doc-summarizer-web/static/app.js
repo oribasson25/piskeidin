@@ -228,15 +228,14 @@ function renderVerdictTable(results) {
     if (r.error) {
       tr.className = "is-error";
       tr.innerHTML = `
-        <td colspan="6">${escHtml(r.filename)} — שגיאה: ${escHtml(r.error)}</td>`;
+        <td colspan="5">${escHtml(r.filename)} — שגיאה: ${escHtml(r.error)}</td>`;
     } else {
       tr.innerHTML = `
         <td class="court-cell">${escHtml(r.court || "לא צוין")}</td>
         <td class="judge-cell">${escHtml(r.judge || "לא צוין")}</td>
         <td>${escHtml(r.case_description || "לא צוין")}</td>
         <td class="verdict-cell">${escHtml(r.verdict || "לא צוין")}</td>
-        <td class="amount-cell">${escHtml(fmtAmountText(r.amount_before_vat))}</td>
-        <td class="amount-cell">${escHtml(fmtAmountText(r.amount_after_vat))}</td>`;
+        <td class="amount-cell">${escHtml(fmtAmountText(r.amount_final))}</td>`;
     }
     tbody.appendChild(tr);
   });

@@ -25,8 +25,7 @@ def build_extraction_prompt(text: str) -> str:
   "judge": "שם השופט/ת",
   "case_description": "תיאור קצר של המקרה ב-2-3 משפטים",
   "verdict": "פסק הדין כפי שנכתב, במלל מלא",
-  "amount_before_vat": 12345.67,
-  "amount_after_vat": 14586.29
+  "amount_final": 14586.29
 }}
 
 חוקים קפדניים:
@@ -34,8 +33,7 @@ def build_extraction_prompt(text: str) -> str:
 - judge: שם השופט/ת בלבד, ללא תואר
 - case_description: 2-3 משפטים המסכמים את מהות הסכסוך
 - verdict: הנוסח המדויק של הפסיקה מהמסמך
-- amount_before_vat: המספר שעל ליברה לשלם לפני מע"מ (float בלבד, ללא ₪ ללא פסיקים)
-- amount_after_vat: המספר שעל ליברה לשלם אחרי מע"מ (float בלבד, ללא ₪ ללא פסיקים)
+- amount_final: הסכום הסופי שעל ליברה לשלם כפי שנפסק (float בלבד, ללא ₪ ללא פסיקים)
 - אם ליברה לא נדרשת לשלם — הכנס 0
 - אם מידע מסוים לא מופיע בפסק — הכנס null
 - אם לא ניתן לקבוע סכום מדויק — הכנס null
@@ -45,37 +43,8 @@ def build_extraction_prompt(text: str) -> str:
 ==================="""
 
 
-def build_analysis_prompt(cases: list) -> str:
-    lines = []
-    for i, c in enumerate(cases):
-        before = c.get("amount_before_vat")
-        after  = c.get("amount_after_vat")
-        before_str = f"₪{before:,.0f}" if before is not None else "לא צוין"
-        after_str  = f"₪{after:,.0f}"  if after  is not None else "לא צוין"
-        lines.append(
-            f"פסק {i+1}: {c.get('court','לא ידוע')} | "
-            f"שופט/ת: {c.get('judge','לא ידוע')} | "
-            f"לפני מע\"מ: {before_str} | "
-            f"אחרי מע\"מ: {after_str}"
-        )
-
-    return f"""אתה יועץ משפטי המנתח פסקי דין נגד חברת ליברה. בהתבסס על הנתונים הבאים, ספק ניתוח מפורט.
-
-פסקי הדין:
-{chr(10).join(lines)}
-
-ספק ניתוח הכולל:
-1. אילו בתי משפט פסקו סכומים גבוהים (לא נוחים לליברה)
-2. אילו בתי משפט פסקו סכומים נמוכים (נוחים לליברה)
-3. תובנות על שופטים ספציפיים אם יש מספיק נתונים
-4. המלצה מסכמת: לאיזו ערכאה עדיף להגיע ולאיזו לא
-
-ענה בעברית, בנקודות ברורות ומסודרות."""
-
-
 def _parse_json_response(text: str) -> dict:
     text = text.strip()
-    # Strip markdown code fences if present
     if text.startswith("```"):
         text = text.split("```", 2)[1]
         if text.startswith("json"):
@@ -97,7 +66,7 @@ async def analyze(files: List[UploadFile] = File(...)):
         filename = file.filename
         entry = {"filename": filename, "court": None, "judge": None,
                  "case_description": None, "verdict": None,
-                 "amount_before_vat": None, "amount_after_vat": None, "error": None}
+                 "amount_final": None, "error": None}
         try:
             file_bytes = await file.read()
             ext = Path(filename).suffix.lower()
@@ -119,37 +88,14 @@ async def analyze(files: List[UploadFile] = File(...)):
             raw = message.content[0].text
             data = _parse_json_response(raw)
             entry.update({
-                "court":             data.get("court"),
-                "judge":             data.get("judge"),
-                "case_description":  data.get("case_description"),
-                "verdict":           data.get("verdict"),
-                "amount_before_vat": data.get("amount_before_vat"),
-                "amount_after_vat":  data.get("amount_after_vat"),
+                "court":            data.get("court"),
+                "judge":            data.get("judge"),
+                "case_description": data.get("case_description"),
+                "verdict":          data.get("verdict"),
+                "amount_final":     data.get("amount_final"),
             })
         except Exception as e:
             entry["error"] = str(e)
         results.append(entry)
 
     return {"results": results}
-
-
-@router.post("/analyze/summary")
-async def analyze_summary(body: dict):
-    cases = body.get("cases", [])
-    if not cases:
-        return {"summary": "אין נתונים לניתוח."}
-    try:
-        client, model = get_client()
-    except ValueError:
-        return {"error": "missing_api_key", "summary": ""}
-
-    prompt = build_analysis_prompt(cases)
-    try:
-        message = client.messages.create(
-            model=model,
-            max_tokens=1500,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return {"summary": message.content[0].text}
-    except Exception as e:
-        return {"error": str(e), "summary": ""}

@@ -9,11 +9,10 @@ HEADERS = [
     "השופט ששפט באותו דיון",
     "תאור המקרה",
     "פסק הדין במלל",
-    "הסכום שיש לליברה לשלם לפני מעמ",
-    "הסכום שיש לליברה לשלם אחרי מעמ",
+    "סכום לתשלום סופי",
 ]
 
-COL_WIDTHS = [16.0, 15.29, 14.43, 16.86, 15.0, 15.0]
+COL_WIDTHS = [16.0, 15.29, 14.43, 16.86, 15.0]
 HEADER_ROW_HEIGHT = 54.75
 DATA_ROW_HEIGHT   = 27.0
 
@@ -38,7 +37,6 @@ def export_to_excel(results: list) -> bytes:
     ws = wb.active
     ws.title = "sheet1"
 
-    # Header row
     for col_idx, header in enumerate(HEADERS, 1):
         cell = ws.cell(row=1, column=col_idx, value=header)
         cell.font      = HEADER_FONT
@@ -47,7 +45,6 @@ def export_to_excel(results: list) -> bytes:
         cell.border    = CELL_BORDER
     ws.row_dimensions[1].height = HEADER_ROW_HEIGHT
 
-    # Data rows
     for row_idx, r in enumerate(results, 2):
         err = bool(r.get("error"))
 
@@ -61,19 +58,17 @@ def export_to_excel(results: list) -> bytes:
         if err:
             wc(1, r.get("filename", ""))
             wc(2, f"שגיאה: {r.get('error', '')}")
-            for c in range(3, 7):
+            for c in range(3, 6):
                 wc(c, "")
         else:
             wc(1, r.get("court") or "")
             wc(2, r.get("judge") or "")
             wc(3, r.get("case_description") or "")
             wc(4, r.get("verdict") or "")
-            wc(5, _fmt_amount(r.get("amount_before_vat")))
-            wc(6, _fmt_amount(r.get("amount_after_vat")))
+            wc(5, _fmt_amount(r.get("amount_final")))
 
         ws.row_dimensions[row_idx].height = DATA_ROW_HEIGHT
 
-    # Column widths
     for col_idx, width in enumerate(COL_WIDTHS, 1):
         ws.column_dimensions[get_column_letter(col_idx)].width = width
 
